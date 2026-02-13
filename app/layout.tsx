@@ -3,24 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'PIDX Candle Service API — Playground',
-  description: 'TradingView UDF-compatible API for Paxeer Index (PIDX) price data.
-
-This service provides real-time and historical candlestick data for the PIDX index,
-which is a weighted basket of 10 major cryptocurrencies:
-- BTC (39.15%), ETH (30.13%), SOL (6.39%), XRP (5.65%), DOGE (3.39%)
-- BNB (6.77%), ADA (2.64%), LINK (1.96%), AVAX (1.96%), TRON (1.96%)
-
-## TradingView Integration
-This API is fully compatible with TradingView's [UDF (Universal Data Feed)](https://www.tradingview.com/rest-api-spec/) specification.
-
-## Supported Resolutions
-- Intraday: 1m, 2m, 3m, 5m, 15m, 30m, 1h, 4h, 8h
-- Daily/Weekly: 1D, 1W
-
-## Base URL
-- Production: `https://us-east-1.index-api.sidiora.exchange`
-- Local: `http://localhost:3001`
-',
+  description: 'TradingView UDF-compatible API for Paxeer Index (PIDX) price data.',
 };
 
 export default function RootLayout({
