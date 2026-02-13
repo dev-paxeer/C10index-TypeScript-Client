@@ -53,7 +53,7 @@ export interface PlaygroundConfig {
 
 const config: PlaygroundConfig = {
   name: 'PIDX Candle Service API',
-  description: 'TradingView UDF-compatible API for Paxeer Index (PIDX) price data.',
+  description: 'API for Paxeer Index (PIDX) price data.',
   baseUrl: 'https://us-east-1.index-api.sidiora.exchange',
   specPath: './openapi.yaml',
   theme: {
