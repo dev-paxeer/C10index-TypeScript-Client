@@ -1,0 +1,741 @@
+openapi: 3.1.0
+info:
+  title: PIDX Candle Service API
+  description: |
+    TradingView UDF-compatible API for Paxeer Index (PIDX) price data.
+    
+    This service provides real-time and historical candlestick data for the PIDX index,
+    which is a weighted basket of 10 major cryptocurrencies:
+    - BTC (39.15%), ETH (30.13%), SOL (6.39%), XRP (5.65%), DOGE (3.39%)
+    - BNB (6.77%), ADA (2.64%), LINK (1.96%), AVAX (1.96%), TRON (1.96%)
+    
+    ## TradingView Integration
+    This API is fully compatible with TradingView's [UDF (Universal Data Feed)](https://www.tradingview.com/rest-api-spec/) specification.
+    
+    ## Supported Resolutions
+    - Intraday: 1m, 2m, 3m, 5m, 15m, 30m, 1h, 4h, 8h
+    - Daily/Weekly: 1D, 1W
+    
+    ## Base URL
+    - Production: `https://us-east-1.index-api.sidiora.exchange`
+    - Local: `http://localhost:3001`
+  version: 1.0.0
+  contact:
+    name: Paxeer Support
+    email: info@paxeer.app
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://us-east-1.index-api.sidiora.exchange
+    description: Production server
+
+tags:
+  - name: TradingView UDF
+    description: TradingView Universal Data Feed compatible endpoints
+  - name: Price Data
+    description: Real-time price and quote endpoints
+  - name: System
+    description: Health and status endpoints
+
+paths:
+  /config:
+    get:
+      tags:
+        - TradingView UDF
+      summary: Datafeed configuration
+      description: |
+        Returns the datafeed configuration including supported resolutions,
+        exchanges, and symbol types. Required by TradingView charting library.
+      operationId: getConfig
+      responses:
+        '200':
+          description: Datafeed configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatafeedConfig'
+              example:
+                supports_search: true
+                supports_group_request: false
+                supports_marks: false
+                supports_timescale_marks: false
+                supports_time: true
+                exchanges:
+                  - value: "PAXEER"
+                    name: "Paxeer Network"
+                    desc: "Paxeer Decentralized Exchange"
+                symbols_types:
+                  - name: "Index"
+                    value: "index"
+                supported_resolutions:
+                  - "1"
+                  - "2"
+                  - "3"
+                  - "5"
+                  - "15"
+                  - "30"
+                  - "60"
+                  - "240"
+                  - "480"
+                  - "D"
+                  - "W"
+                currency_codes:
+                  - "USD"
+
+  /time:
+    get:
+      tags:
+        - TradingView UDF
+      summary: Server time
+      description: Returns current server time as UNIX timestamp (seconds).
+      operationId: getTime
+      responses:
+        '200':
+          description: Current server time
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "1738756800"
+
+  /symbols:
+    get:
+      tags:
+        - TradingView UDF
+      summary: Symbol information
+      description: |
+        Returns detailed information about a specific symbol including
+        trading session, timezone, price scale, and supported resolutions.
+      operationId: getSymbol
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Symbol ticker (e.g., PIDX)
+          schema:
+            type: string
+            example: PIDX
+      responses:
+        '200':
+          description: Symbol information
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/SymbolInfo'
+                  - $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                success:
+                  summary: Successful response
+                  value:
+                    name: "PIDX"
+                    ticker: "PIDX"
+                    description: "Paxeer Index"
+                    type: "index"
+                    session: "24x7"
+                    exchange: "PAXEER"
+                    listed_exchange: "PAXEER"
+                    timezone: "Etc/UTC"
+                    format: "price"
+                    pricescale: 100
+                    minmov: 1
+                    has_intraday: true
+                    has_daily: true
+                    has_weekly_and_monthly: true
+                    supported_resolutions:
+                      - "1"
+                      - "2"
+                      - "3"
+                      - "5"
+                      - "15"
+                      - "30"
+                      - "60"
+                      - "240"
+                      - "480"
+                      - "D"
+                      - "W"
+                    volume_precision: 2
+                    data_status: "streaming"
+                    currency_code: "USD"
+                error:
+                  summary: Unknown symbol
+                  value:
+                    s: "error"
+                    errmsg: "Unknown symbol"
+
+  /search:
+    get:
+      tags:
+        - TradingView UDF
+      summary: Symbol search
+      description: Searches for symbols matching the given query string.
+      operationId: searchSymbols
+      parameters:
+        - name: query
+          in: query
+          required: false
+          description: Search query string
+          schema:
+            type: string
+            example: PIDX
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results to return
+          schema:
+            type: integer
+            default: 30
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: List of matching symbols
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SearchResult'
+              example:
+                - symbol: "PIDX"
+                  full_name: "PAXEER:PIDX"
+                  description: "Paxeer Index"
+                  exchange: "PAXEER"
+                  ticker: "PIDX"
+                  type: "index"
+
+  /history:
+    get:
+      tags:
+        - TradingView UDF
+      summary: Historical candle data
+      description: |
+        Returns historical OHLCV (Open, High, Low, Close, Volume) candlestick data
+        for the specified symbol and time range.
+        
+        ## Resolution Mapping
+        | TradingView | Internal |
+        |-------------|----------|
+        | 1           | 1m       |
+        | 2           | 2m       |
+        | 3           | 3m       |
+        | 5           | 5m       |
+        | 15          | 15m      |
+        | 30          | 30m      |
+        | 60          | 1h       |
+        | 240         | 4h       |
+        | 480         | 8h       |
+        | D           | 1D       |
+        | W           | 1W       |
+      operationId: getHistory
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: Symbol ticker
+          schema:
+            type: string
+            example: PIDX
+        - name: resolution
+          in: query
+          required: true
+          description: |
+            Candle resolution/timeframe.
+            Valid values: 1, 2, 3, 5, 15, 30, 60, 240, 480, D, W
+          schema:
+            type: string
+            enum:
+              - "1"
+              - "2"
+              - "3"
+              - "5"
+              - "15"
+              - "30"
+              - "60"
+              - "240"
+              - "480"
+              - "D"
+              - "W"
+            example: "15"
+        - name: from
+          in: query
+          required: true
+          description: Start time as UNIX timestamp (seconds)
+          schema:
+            type: integer
+            example: 1738670400
+        - name: to
+          in: query
+          required: true
+          description: End time as UNIX timestamp (seconds)
+          schema:
+            type: integer
+            example: 1738756800
+        - name: countback
+          in: query
+          required: false
+          description: |
+            Number of bars to return (alternative to time range).
+            If specified, returns the most recent `countback` bars before `to`.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5000
+            default: 1000
+      responses:
+        '200':
+          description: Historical candle data
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/HistoryResponse'
+                  - $ref: '#/components/schemas/NoDataResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                success:
+                  summary: Successful response with data
+                  value:
+                    s: "ok"
+                    t:
+                      - 1738670400
+                      - 1738671300
+                      - 1738672200
+                    o:
+                      - 28100.50
+                      - 28150.25
+                      - 28120.75
+                    h:
+                      - 28175.00
+                      - 28200.50
+                      - 28180.00
+                    l:
+                      - 28050.25
+                      - 28100.00
+                      - 28090.50
+                    c:
+                      - 28150.25
+                      - 28120.75
+                      - 28160.00
+                    v:
+                      - 0
+                      - 0
+                      - 0
+                no_data:
+                  summary: No data available for range
+                  value:
+                    s: "no_data"
+                error:
+                  summary: Error response
+                  value:
+                    s: "error"
+                    errmsg: "Invalid resolution"
+
+  /quotes:
+    get:
+      tags:
+        - Price Data
+      summary: Real-time quotes
+      description: |
+        Returns real-time quote data for one or more symbols.
+        Provides current price, bid/ask, and daily OHLC values.
+      operationId: getQuotes
+      parameters:
+        - name: symbols
+          in: query
+          required: true
+          description: Comma-separated list of symbol tickers
+          schema:
+            type: string
+            example: PIDX
+      responses:
+        '200':
+          description: Quote data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotesResponse'
+              example:
+                s: "ok"
+                d:
+                  - s: "ok"
+                    n: "PIDX"
+                    v:
+                      ch: 0
+                      chp: 0
+                      short_name: "PIDX"
+                      exchange: "PAXEER"
+                      description: "Paxeer Index"
+                      lp: 28150.50
+                      ask: 28150.50
+                      bid: 28150.50
+                      open_price: 28100.00
+                      high_price: 28200.75
+                      low_price: 28050.25
+                      prev_close_price: 28100.00
+                      volume: 0
+
+  /price:
+    get:
+      tags:
+        - Price Data
+      summary: Current PIDX price
+      description: |
+        Returns the current PIDX index price with OHLC data for the current
+        1-minute candle. This is a simplified endpoint for frontend price displays.
+      operationId: getPrice
+      responses:
+        '200':
+          description: Current price data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceResponse'
+              example:
+                symbol: "PIDX"
+                price: 28150.50
+                timestamp: "2026-02-05T12:35:00.000Z"
+                open: 28100.00
+                high: 28175.25
+                low: 28090.50
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+              example:
+                error: "No price data available"
+
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: |
+        Returns the health status of the service including backfill status
+        and timestamp of the most recent candle data.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "ok"
+                backfill: "complete"
+                lastCandle: "2026-02-05T12:35:00.000Z"
+                symbol: "PIDX"
+        '500':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "error"
+                  error:
+                    type: string
+
+components:
+  schemas:
+    DatafeedConfig:
+      type: object
+      properties:
+        supports_search:
+          type: boolean
+          description: Whether symbol search is supported
+        supports_group_request:
+          type: boolean
+          description: Whether group requests are supported
+        supports_marks:
+          type: boolean
+          description: Whether marks are supported
+        supports_timescale_marks:
+          type: boolean
+          description: Whether timescale marks are supported
+        supports_time:
+          type: boolean
+          description: Whether server time endpoint is supported
+        exchanges:
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+              name:
+                type: string
+              desc:
+                type: string
+        symbols_types:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+        supported_resolutions:
+          type: array
+          items:
+            type: string
+        currency_codes:
+          type: array
+          items:
+            type: string
+
+    SymbolInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Symbol name
+        ticker:
+          type: string
+          description: Symbol ticker
+        description:
+          type: string
+          description: Full symbol description
+        type:
+          type: string
+          description: Symbol type (e.g., index, stock, crypto)
+        session:
+          type: string
+          description: Trading session (e.g., 24x7)
+        exchange:
+          type: string
+          description: Exchange name
+        listed_exchange:
+          type: string
+          description: Listed exchange name
+        timezone:
+          type: string
+          description: Timezone for the symbol
+        format:
+          type: string
+          description: Price format
+        pricescale:
+          type: integer
+          description: Price scale (100 = 2 decimal places)
+        minmov:
+          type: integer
+          description: Minimum price movement
+        has_intraday:
+          type: boolean
+          description: Whether intraday data is available
+        has_daily:
+          type: boolean
+          description: Whether daily data is available
+        has_weekly_and_monthly:
+          type: boolean
+          description: Whether weekly/monthly data is available
+        supported_resolutions:
+          type: array
+          items:
+            type: string
+        volume_precision:
+          type: integer
+          description: Volume decimal precision
+        data_status:
+          type: string
+          description: Data status (streaming, delayed, etc.)
+        currency_code:
+          type: string
+          description: Currency code for prices
+
+    SearchResult:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Symbol ticker
+        full_name:
+          type: string
+          description: Full symbol name with exchange
+        description:
+          type: string
+          description: Symbol description
+        exchange:
+          type: string
+          description: Exchange name
+        ticker:
+          type: string
+          description: Symbol ticker
+        type:
+          type: string
+          description: Symbol type
+
+    HistoryResponse:
+      type: object
+      properties:
+        s:
+          type: string
+          enum:
+            - ok
+          description: Status indicator
+        t:
+          type: array
+          items:
+            type: integer
+          description: Array of UNIX timestamps (seconds)
+        o:
+          type: array
+          items:
+            type: number
+          description: Array of open prices
+        h:
+          type: array
+          items:
+            type: number
+          description: Array of high prices
+        l:
+          type: array
+          items:
+            type: number
+          description: Array of low prices
+        c:
+          type: array
+          items:
+            type: number
+          description: Array of close prices
+        v:
+          type: array
+          items:
+            type: number
+          description: Array of volumes
+
+    NoDataResponse:
+      type: object
+      properties:
+        s:
+          type: string
+          enum:
+            - no_data
+          description: Indicates no data available for the requested range
+
+    ErrorResponse:
+      type: object
+      properties:
+        s:
+          type: string
+          enum:
+            - error
+          description: Error status indicator
+        errmsg:
+          type: string
+          description: Error message
+
+    QuotesResponse:
+      type: object
+      properties:
+        s:
+          type: string
+          description: Status
+        d:
+          type: array
+          items:
+            type: object
+            properties:
+              s:
+                type: string
+                description: Quote status
+              n:
+                type: string
+                description: Symbol name
+              v:
+                type: object
+                properties:
+                  ch:
+                    type: number
+                    description: Price change
+                  chp:
+                    type: number
+                    description: Price change percentage
+                  short_name:
+                    type: string
+                    description: Short symbol name
+                  exchange:
+                    type: string
+                    description: Exchange name
+                  description:
+                    type: string
+                    description: Symbol description
+                  lp:
+                    type: number
+                    description: Last price
+                  ask:
+                    type: number
+                    description: Ask price
+                  bid:
+                    type: number
+                    description: Bid price
+                  open_price:
+                    type: number
+                    description: Open price
+                  high_price:
+                    type: number
+                    description: High price
+                  low_price:
+                    type: number
+                    description: Low price
+                  prev_close_price:
+                    type: number
+                    description: Previous close price
+                  volume:
+                    type: number
+                    description: Volume
+
+    PriceResponse:
+      type: object
+      properties:
+        symbol:
+          type: string
+          description: Symbol ticker
+        price:
+          type: number
+          description: Current price (same as close)
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the price data
+        open:
+          type: number
+          description: Open price of current candle
+        high:
+          type: number
+          description: High price of current candle
+        low:
+          type: number
+          description: Low price of current candle
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+            - error
+          description: Service status
+        backfill:
+          type: string
+          description: Backfill status (complete, pending, in_progress)
+        lastCandle:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of most recent candle
+        symbol:
+          type: string
+          description: Symbol being served
